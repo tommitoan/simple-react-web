@@ -3,33 +3,54 @@ import { Link, useNavigate, useOutletContext } from "react-router-dom";
 
 const ManageCatalogue = () => {
     const [movies, setMovies] = useState([]);
+    const [loading, setLoading] = useState(true); // Add loading state
     const { jwtToken } = useOutletContext();
     const navigate = useNavigate();
 
-    useEffect( () => {
-        if (jwtToken === "") {
-            navigate("/login");
-            return
-        }
-        const headers = new Headers();
-        headers.append("Content-Type", "application/json");
-        headers.append("Authorization", "Bearer " + jwtToken);
+    useEffect(() => {
+        let isMounted = true;
 
-        const requestOptions = {
-            method: "GET",
-            headers: headers,
-        }
+        const fetchMovies = async () => {
+            if (!jwtToken) {
+                setLoading(false); // Stop loading if token is not available
+                return;
+            }
 
-        fetch(`/admin/movies`, requestOptions)
-            .then((response) => response.json())
-            .then((data) => {
-                setMovies(data);
-            })
-            .catch(err => {
-                console.log(err);
-            })
+            const headers = new Headers();
+            headers.append("Content-Type", "application/json");
+            headers.append("Authorization", "Bearer " + jwtToken);
 
+            const requestOptions = {
+                method: "GET",
+                headers: headers,
+            };
+
+            try {
+                const response = await fetch(`/admin/movies`, requestOptions);
+                const data = await response.json();
+                if (isMounted) {
+                    setMovies(data);
+                    setLoading(false); // Stop loading after fetching movies
+                }
+            } catch (error) {
+                console.log(error);
+                setLoading(false); // Stop loading if an error occurs
+                setTimeout(() => {
+                    navigate("/login"); // Redirect to login page after a delay
+                }, 3000); // Adjust the delay time as needed
+            }
+        };
+
+        fetchMovies();
+
+        return () => {
+            isMounted = false; // Cleanup function to prevent memory leaks
+        };
     }, [jwtToken, navigate]);
+
+    if (loading) {
+        return <div>Loading...</div>; // Render loading indicator while fetching data
+    }
 
     return(
         <div>
